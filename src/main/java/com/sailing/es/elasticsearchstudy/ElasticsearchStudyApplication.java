@@ -8,6 +8,7 @@ public class ElasticsearchStudyApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(ElasticsearchStudyApplication.class, args);
+        System.out.println("111");
     }
 
 }
