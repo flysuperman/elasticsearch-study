@@ -19,7 +19,16 @@ public class ElasticsearchSupportTest {
 		boolean flag = ElasticsearchSupport.checkConn(Constants.CLUSTER_NAME, Constants.IP, Constants.PORT);
 		System.out.println("flag="+flag);
 	}
-	
+
+	@Test
+	public void createEmpInex(){
+		String indexName ="test_shard_index";
+		int shardsNum = 7;
+		int replicasNum = 2;
+		boolean empInex = ElasticsearchSupport.createEmpInex(indexName, shardsNum, replicasNum);
+		System.out.println(empInex);
+	}
+
 	@Test
 	public void testCreateEmpIndexByMapping1() {
 	List<FieldInfo> list = new ArrayList<FieldInfo>();
@@ -75,7 +84,7 @@ public class ElasticsearchSupportTest {
 			userInfo.setBirthDate(new Date());
 			userInfo.setDesc("非常好的孩子");
 		   String indexName = "user_db1";
-		   String type = "user_info1";
+		   String type = "user_info2";
 		   ElasticsearchSupport.addIndexByObj(indexName, type, userInfo);
 	}
 	

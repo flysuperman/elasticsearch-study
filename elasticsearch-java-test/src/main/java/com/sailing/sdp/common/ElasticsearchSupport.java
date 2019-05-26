@@ -37,6 +37,7 @@ public class ElasticsearchSupport {
             		 .put("client.transport.sniff", true)
                      .put("client.transport.ping_timeout", "30s").build();
             client = new PreBuiltTransportClient(settings);
+            //设置ip和端口
             String[] ips = ip.split(",");
             for (int i = 0; i < ips.length; i++) {
                 client.addTransportAddress(new TransportAddress(InetAddress.getByName(ips[i]),port));
@@ -78,19 +79,22 @@ public class ElasticsearchSupport {
 		}
 		return flag;
 	}
-	
-	
+
+
 	/**
-	 * 创建空索引
+	 * 创建爱你一个空索引
 	 * @param indexName 索引名称
+	 * @param shardsNum 主分片数
+	 * @param replicasNum 副本数
+	 * @return
 	 */
-	public static boolean createEmpInex(String indexName) {
+	public static boolean createEmpInex(String indexName,int shardsNum,int replicasNum) {
 		boolean flag =true;
 		TransportClient client = null;
 		try {
 			 Settings settings = Settings.builder()
-	 				 .put("index.number_of_shards", 3)
-	 		         .put("index.number_of_replicas", 0)
+	 				 .put("index.number_of_shards", shardsNum)
+	 		         .put("index.number_of_replicas", replicasNum)
                      .build();
 			client = getTransportClient(Constants.CLUSTER_NAME,Constants.IP,Constants.PORT);
 			IndicesAdminClient admin = client.admin().indices();
@@ -395,12 +399,12 @@ public class ElasticsearchSupport {
     
     /**
      * 获取索引数据
-     * @param indexName 索引名称
+     * @param index 索引名称
      * @param type type
      * @param id
      * @return
-     */
-    public static String getIndexDataById(String index,String type,String id) {
+     */    public static String getIndexDataById(String index,String type,String id) {
+
     	String result = null;
   		TransportClient client = null;
   		try {
