@@ -1,24 +1,27 @@
 package com.sailing.es.elasticsearchrestclientdemo.config;
 
 import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONObject;
-import org.apache.http.HttpEntity;
-import org.apache.http.entity.ContentType;
-import org.apache.http.nio.entity.NStringEntity;
 import org.elasticsearch.action.admin.indices.alias.Alias;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexResponse;
 import org.elasticsearch.action.admin.indices.get.GetIndexRequest;
+import org.elasticsearch.action.admin.indices.get.GetIndexResponse;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.action.delete.DeleteRequest;
+import org.elasticsearch.action.delete.DeleteResponse;
+import org.elasticsearch.action.get.GetRequest;
+import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchType;
 import org.elasticsearch.action.support.IndicesOptions;
+import org.elasticsearch.action.update.UpdateRequest;
+import org.elasticsearch.action.update.UpdateResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestClient;
@@ -37,7 +40,7 @@ import org.springframework.stereotype.Component;
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.io.IOException;
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -92,7 +95,14 @@ public class EsClientSupport {
     }
 
 
-
+    /**
+     * 创建索引
+     * @param index
+     * @param alias
+     * @param numberOfShards
+     * @param numberOfRelicas
+     * @return
+     */
     public static boolean createIndex(String index,String alias,int
             numberOfShards,int numberOfRelicas){
         try {
@@ -106,6 +116,8 @@ public class EsClientSupport {
             if(null!=alias && "".equals(alias)){
                 request.alias(new Alias(alias));
             }
+            request.timeout(TimeValue.timeValueMinutes(2));//超时,等待所有节点被确认(使用TimeValue方式)
+            request.masterNodeTimeout(TimeValue.timeValueMinutes(1));//连接master节点的超时时间(使用TimeValue方式)
             CreateIndexResponse indexResponse =client.indices().create(request,RequestOptions.DEFAULT);
             if(indexResponse.isAcknowledged()){
                 System.out.println("索引创建成功");
@@ -116,7 +128,7 @@ public class EsClientSupport {
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-
+            close(client);
         }
         return false;
     }
@@ -157,34 +169,144 @@ public class EsClientSupport {
     }
 
     /**
-     * 增加索引数据
+     * 获取所有索引
+     * @param indexReg 索引表达式
+     * @return
+     */
+    public static String[] getIndex(String indexReg){
+        try {
+            GetIndexRequest request = new GetIndexRequest().indices(indexReg);
+            GetIndexResponse response = client.indices().get(request, RequestOptions.DEFAULT);
+            return  response.getIndices();
+        }catch (Exception e){
+            e.printStackTrace();
+            System.out.println("获取索引失败");
+        }finally {
+            close(client);
+        }
+        return null;
+    }
+
+
+    /**
+     * 文档是否存在
+     * @param index
+     * @param type
+     * @param id
+     * @return
+     */
+    public static boolean isExistDocument(String index,String type,String id){
+        GetRequest request = new GetRequest(index,type,id);
+        boolean result =false;
+        try {
+            result = client.exists(request, RequestOptions.DEFAULT);
+            System.out.println("文档"+id+" 是否存在："+request);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }finally {
+            close(client);
+        }
+        return result;
+    }
+
+    /**
+     * 增加数据
      * @param index 索引名称
      * @param type 索引类型
      * @param id 索引id
      * @param indexData 索引数据，json格式的字符串
      * @return 索引id
      */
-    public static String addIndexData(String index,String type,String id,String indexData){
+    public static String addDocument(String index,String type,String id,String indexData){
         try {
             IndexRequest indexRequest = new IndexRequest (index,type,id);
             indexRequest.source(indexData, XContentType.JSON);
-            IndexResponse indexResponse = client.index(indexRequest);
+            IndexResponse indexResponse = client.index(indexRequest,RequestOptions.DEFAULT);
             return indexResponse.getId();
         } catch (Exception e) {
             System.out.println("写入数据失败");
             e.printStackTrace();
+        }finally {
+            close(client);
         }
         return null;
     }
 
     /**
-     * 批量插入数据
+     * 修改文档
+     * @param index
+     * @param type
+     * @param id
+     * @param indexData
+     * @return
+     */
+    public static String updateDocument(String index,String type,String id,String indexData){
+        try {
+            UpdateRequest updateRequest = new UpdateRequest(index,type,id);
+            updateRequest.doc(indexData, XContentType.JSON);
+            UpdateResponse response = client.update(updateRequest, RequestOptions.DEFAULT);
+            return response.getId();
+        } catch (Exception e) {
+            System.out.println("更新数据失败");
+            e.printStackTrace();
+        }finally {
+            close(client);
+        }
+        return null;
+    }
+
+    /**
+     * 删除文档
+     * @param index
+     * @param type
+     * @param id
+     * @param indexData
+     * @return
+     */
+    public static String deleteDocuemnt(String index,String type,String id,String indexData){
+        try {
+            DeleteRequest deleteRequest = new DeleteRequest(index,type,id);
+            deleteRequest.timeout(TimeValue.timeValueSeconds(2));
+            DeleteResponse delete = client.delete(deleteRequest, RequestOptions.DEFAULT);
+            return delete.getId();
+        } catch (Exception e) {
+            System.out.println("更新数据失败");
+            e.printStackTrace();
+        }finally {
+            close(client);
+        }
+        return null;
+    }
+
+    /**
+     * 查询文档
+     * @param index
+     * @param type
+     * @param id
+     * @return
+     */
+    public static String getDocument(String index,String type,String id){
+        GetRequest request = new GetRequest(index,type,id);
+        String result = null;
+        try {
+            GetResponse response = client.get(request, RequestOptions.DEFAULT);
+            result =response.getSource().toString();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }finally {
+            close(client);
+        }
+        return result;
+    }
+
+    /**
+     * 批量增加文档
      * @param index
      * @param type
      * @param list
      * @return
      */
-    public static int batchAddIndexData(String index, String type, List list){
+    public static int batchAddDocument(String index, String type, List list){
         try {
             BulkRequest bulkRequest = new BulkRequest();
             for(Object userInfo: list){
@@ -192,31 +314,61 @@ public class EsClientSupport {
                 indexRequest.source(JSON.toJSONString(userInfo),XContentType.JSON);
                 bulkRequest.add(indexRequest);
             }
-            BulkResponse bulk = client.bulk(bulkRequest);
+            BulkResponse bulk = client.bulk(bulkRequest,RequestOptions.DEFAULT);
             return  bulk.status().getStatus();
-        } catch (Exception e) {
-            System.out.println("写入数据失败");
-           e.printStackTrace();
-        }
-        return 0;
-    }
-
-    public static String queryAllByLower(String index,String type){
-        try {
-            JSONObject jsonObject = new JSONObject();
-            jsonObject.put("match_all","{}");
-            JSONObject queryObject = new JSONObject();
-            queryObject.put("query",jsonObject);
-            String queryStr = JSON.toJSONString(queryObject);
-            HttpEntity entity = new NStringEntity(queryStr,ContentType.APPLICATION_JSON);
-            String endPoint = "/"+index+"/"+type+"/_search";
-            Response response = client.getLowLevelClient().performRequest("POST", endPoint, Collections.<String, String>emptyMap(), entity);
-            return response.toString();
         } catch (Exception e) {
             System.out.println("写入数据失败");
             e.printStackTrace();
         }
+        return 0;
+    }
+
+
+
+    public static String queryAllByLower(String index,String type){
+//        try {
+//            JSONObject jsonObject = new JSONObject();
+//            jsonObject.put("match_all","{}");
+//            JSONObject queryObject = new JSONObject();
+//            queryObject.put("query",jsonObject);
+//            String queryStr = JSON.toJSONString(queryObject);
+//            HttpEntity entity = new NStringEntity(queryStr,ContentType.APPLICATION_JSON);
+//            String endPoint = "/"+index+"/"+type+"/_search";
+//            Response response = client.getLowLevelClient().("POST", endPoint, Collections.<String, String>emptyMap(), entity);
+//            return response.toString();
+//        } catch (Exception e) {
+//            System.out.println("写入数据失败");
+//            e.printStackTrace();
+//        }
         return "";
+    }
+
+
+    public static String queryAll(String index,String type,
+                                  String fieldName,String value){
+
+        String result = "";
+        try {
+            SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
+            sourceBuilder.query(QueryBuilders.termQuery(fieldName,value));
+            sourceBuilder.timeout(new TimeValue(60,TimeUnit.SECONDS));
+            SearchRequest searchRequest = new SearchRequest(index,type);
+            searchRequest.source(sourceBuilder);
+            SearchResponse response = client.search(searchRequest, RequestOptions.DEFAULT);
+            Arrays.stream(response.getHits().getHits())
+                    .forEach(i->{
+                        System.out.println(i.getIndex());
+                        System.out.println(i.getType());
+                        System.out.println(i.getSourceAsString());
+                    });
+            result = response.getHits().getHits().toString();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }finally {
+            close(client);
+        }
+        return result;
+
     }
 
     public static String queryPage(String index,String type,
@@ -251,12 +403,15 @@ public class EsClientSupport {
         boolQueryBuilder.must(rangbuilder);
         //排序
         FieldSortBuilder fieldSortBuilder = SortBuilders.fieldSort("date");
+        sourceBuilder.sort(new FieldSortBuilder("_uid").order(SortOrder.ASC));
         fieldSortBuilder.order(SortOrder.DESC);
         sourceBuilder.sort(fieldSortBuilder);
         //
         sourceBuilder.query(boolQueryBuilder);
         System.out.println(sourceBuilder);
-        SearchRequest searchRequest = new SearchRequest(index);
+
+        SearchRequest searchRequest = new SearchRequest();
+        searchRequest.indices(index);
         searchRequest.types(type);
         searchRequest.searchType(SearchType.QUERY_THEN_FETCH);
         searchRequest.source(sourceBuilder);
@@ -268,14 +423,12 @@ public class EsClientSupport {
 //            for(SearchHit searchHit:hits){
 //
 //            }
-            client.close();
         } catch (IOException e) {
             e.printStackTrace();
+        }finally {
+            close(client);
         }
         return "";
-
-
-
     }
 
     /**
@@ -284,5 +437,13 @@ public class EsClientSupport {
      */
     public static RestClient getLowLevelClient(){
         return client.getLowLevelClient();
+    }
+    public static void close(RestHighLevelClient client){
+        try {
+            client.close();
+        } catch (IOException e) {
+            System.out.println("关闭es客户端失败");
+            e.printStackTrace();
+        }
     }
 }

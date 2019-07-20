@@ -112,4 +112,5 @@ public class EsClientConfig {
             return null;
         }
     }
+
 }
