@@ -26,12 +26,14 @@ import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.*;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.search.fetch.subphase.FetchSourceContext;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
@@ -146,6 +148,7 @@ public class EsClientSupport {
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
+          close(client);
         }
         return false;
     }
@@ -164,6 +167,8 @@ public class EsClientSupport {
         }catch (Exception e){
             System.out.println("删除索引："+index+" 失败");
             e.printStackTrace();
+        } finally {
+            close(client);
         }
         return false;
     }
@@ -319,6 +324,8 @@ public class EsClientSupport {
         } catch (Exception e) {
             System.out.println("写入数据失败");
             e.printStackTrace();
+        } finally {
+            close(client);
         }
         return 0;
     }
@@ -342,6 +349,52 @@ public class EsClientSupport {
 //        }
         return "";
     }
+
+    public static String queryDocument(String index,String type,String id){
+        String result = "";
+        try {
+            GetRequest getRequest = new GetRequest(index,type,id);
+            //不返还源
+//            getRequest.fetchSourceContext(FetchSourceContext.DO_NOT_FETCH_SOURCE);
+
+            //指定返回的字段
+            String[] includes = new String[]{"name"};
+            //排除返回的值
+            String[] excludes = Strings.EMPTY_ARRAY;
+            FetchSourceContext fetchSourceContext =
+                    new FetchSourceContext(true, includes, excludes);
+            getRequest.fetchSourceContext(fetchSourceContext);
+            GetResponse  response = client.get(getRequest, RequestOptions.DEFAULT);
+            result = response.getSourceAsString();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }finally {
+            close(client);
+        }
+        return result;
+
+    }
+
+    /**
+     * mget操作
+     * @return
+     */
+    public static String queryMGet(){
+        return "";
+    }
+
+    /**
+     * bulk操作
+     * @return
+     */
+    public static String bulkOp(){
+        return "";
+    }
+
+    public static boolean deleteBy(){
+        return true;
+    }
+
 
 
     public static String queryAll(String index,String type,
@@ -438,12 +491,13 @@ public class EsClientSupport {
     public static RestClient getLowLevelClient(){
         return client.getLowLevelClient();
     }
+
     public static void close(RestHighLevelClient client){
-        try {
-            client.close();
-        } catch (IOException e) {
-            System.out.println("关闭es客户端失败");
-            e.printStackTrace();
-        }
+//        try {
+//            client.close();
+//        } catch (IOException e) {
+//            System.out.println("关闭es客户端失败");
+//            e.printStackTrace();
+//        }
     }
 }

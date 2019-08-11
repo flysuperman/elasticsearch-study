@@ -44,4 +44,13 @@ public class EsOperateService {
         }
         return EsClientSupport.batchAddDocument(index,type,list)>0;
     }
+
+    public String queryAll(String index,String type,
+                                  String fieldName,String value){
+        return  EsClientSupport.queryAll(index,type,fieldName,value);
+    }
+
+    public String queryDocument(String index,String type,String id){
+        return EsClientSupport.queryDocument(index,type,id);
+    }
 }

@@ -44,4 +44,17 @@ public class EsOperateController {
     public String[] getIndex(String indexReg){
         return esOperateService.getIndex(indexReg);
     }
+
+    @GetMapping("queryAll")
+    @ResponseBody
+    public String queryAll(String index,String type,
+                           String fieldName,String value){
+        return esOperateService.queryAll(index,type,fieldName,value);
+    }
+
+    @GetMapping("queryDocument")
+    @ResponseBody
+    public String queryDocument(String index,String type,String id){
+        return esOperateService.queryDocument(index,type,id);
+    }
 }
