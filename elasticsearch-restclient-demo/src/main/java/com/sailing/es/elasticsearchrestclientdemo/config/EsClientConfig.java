@@ -2,9 +2,16 @@ package com.sailing.es.elasticsearchrestclientdemo.config;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.http.Header;
 import org.apache.http.HttpHost;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.config.RequestConfig;
+import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
+import org.apache.http.message.BasicHeader;
+import org.elasticsearch.client.Node;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
@@ -29,7 +36,9 @@ public class EsClientConfig {
     private static final int ADDRESS_LENGTH = 2;
     private static final String HTTP_SCHEME = "http";
 
+    //连接超时开关
     private static boolean uniqueConnectTimeConfig = false;
+    //连接数开关
     private static boolean uniqueConnectNumConfig = true;
 
 
@@ -60,6 +69,14 @@ public class EsClientConfig {
                 .toArray(HttpHost[]::new);
         log.debug("hosts:{}", Arrays.toString(hosts));
         RestClientBuilder builder = RestClient.builder(hosts);
+        //设置请求头，每个请求都会带上这个请求头
+        Header[] defaultHeaders = {new BasicHeader("header", "value")};
+        builder.setDefaultHeaders(defaultHeaders);
+        //设置超时时间，多次尝试同一请求时应该遵守的超时
+        builder.setMaxRetryTimeoutMillis(60000);
+        //设置失败监听
+        this.setFailureListener(builder);
+
         if(uniqueConnectTimeConfig){
             this.setConnectTimeOutConfig(builder);
         }
@@ -94,9 +111,37 @@ public class EsClientConfig {
         });
     }
 
+    /**
+     *设置监听器，每次节点失败都可以监听到，可以作额外处理
+     * @param builder
+     */
+    private void setFailureListener(RestClientBuilder builder){
+        builder.setFailureListener(new RestClient.FailureListener(){
+            public void onFailure(Node node){
+                super.onFailure(node);
+                System.out.println(node.getName()+"==节点失败了");
+            }
+        });
+    }
+
+    /**
+     * 设置认证
+     */
+    private void setCertificate(RestClientBuilder builder){
+      final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+      credentialsProvider.setCredentials(AuthScope.ANY,new UsernamePasswordCredentials("username","password"));
+      builder.setHttpClientConfigCallback(new RestClientBuilder.HttpClientConfigCallback() {
+          @Override
+          public HttpAsyncClientBuilder customizeHttpClient(HttpAsyncClientBuilder httpClientBuilder) {
+              //禁用抢先认证方式
+              httpClientBuilder.disableAuthCaching();
+              return httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
+          }
+      });
+    }
+
     @Bean(name = "restHighLevelClient")
     public RestHighLevelClient highLevelClient(@Autowired RestClientBuilder restClientBuilder) {
-        restClientBuilder.setMaxRetryTimeoutMillis(60000);
         return new RestHighLevelClient(restClientBuilder);
     }
 

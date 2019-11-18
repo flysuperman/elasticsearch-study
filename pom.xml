@@ -25,6 +25,7 @@
         <module>elasticsearch-java-test</module>
         <module>elasticsearch-springboot-test</module>
         <module>elasticsearch-restclient-demo</module>
+        <module>elasticsearch-feign-demo</module>
     </modules>
 
 </project>
